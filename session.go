@@ -1296,7 +1296,7 @@ func (db *Database) UpsertUser(user *User) error {
 		}
 	}
 	users := db.C("system.users")
-	err = users.Update(bson.D{{Name: "user", Value: user.Username}}, bson.D{{Name: "$unset", Value: unset}, {Name: "$set", Value: set}})
+	_, err = users.Update(bson.D{{Name: "user", Value: user.Username}}, bson.D{{Name: "$unset", Value: unset}, {Name: "$set", Value: set}})
 	if err == ErrNotFound {
 		set = append(set, bson.DocElem{Name: "user", Value: user.Username})
 		if user.Roles == nil && user.OtherDBRoles == nil {
@@ -1397,7 +1397,8 @@ func (db *Database) RemoveUser(user string) error {
 	err := db.Run(bson.D{{Name: "dropUser", Value: user}}, nil)
 	if isNoCmd(err) {
 		users := db.C("system.users")
-		return users.Remove(bson.M{"user": user})
+		_, err := users.Remove(bson.M{"user": user})
+		return err
 	}
 	if isNotFound(err) {
 		return ErrNotFound
@@ -3015,7 +3016,7 @@ func (c *Collection) Insert(docs ...interface{}) error {
 //     http://www.mongodb.org/display/DOCS/Updating
 //     http://www.mongodb.org/display/DOCS/Atomic+Operations
 //
-func (c *Collection) Update(selector interface{}, update interface{}) error {
+func (c *Collection) Update(selector interface{}, update interface{}) (info *ChangeInfo, err error) {
 	if selector == nil {
 		selector = bson.D{}
 	}
@@ -3026,17 +3027,20 @@ func (c *Collection) Update(selector interface{}, update interface{}) error {
 	}
 	lerr, err := c.writeOp(&op, true)
 	if err == nil && lerr != nil && !lerr.UpdatedExisting {
-		return ErrNotFound
+		return &ChangeInfo{}, ErrNotFound
 	}
-	return err
+	if err == nil && lerr != nil {
+		info = &ChangeInfo{Updated: lerr.modified, Matched: lerr.N}
+	}
+	return info, err
 }
 
 // UpdateId is a convenience helper equivalent to:
 //
-//     err := collection.Update(bson.M{"_id": id}, update)
+//     changeInfo, err := collection.Update(bson.M{"_id": id}, update)
 //
 // See the Update method for more details.
-func (c *Collection) UpdateId(id interface{}, update interface{}) error {
+func (c *Collection) UpdateId(id interface{}, update interface{}) (*ChangeInfo, error) {
 	return c.Update(bson.D{{Name: "_id", Value: id}}, update)
 }
 
@@ -3180,23 +3184,26 @@ func (c *Collection) UpsertId(id interface{}, update interface{}) (info *ChangeI
 //
 //     http://www.mongodb.org/display/DOCS/Removing
 //
-func (c *Collection) Remove(selector interface{}) error {
+func (c *Collection) Remove(selector interface{}) (info *ChangeInfo, err error) {
 	if selector == nil {
 		selector = bson.D{}
 	}
 	lerr, err := c.writeOp(&deleteOp{c.FullName, selector, 1, 1}, true)
 	if err == nil && lerr != nil && lerr.N == 0 {
-		return ErrNotFound
+		return &ChangeInfo{}, ErrNotFound
 	}
-	return err
+	if err == nil && lerr != nil {
+		info = &ChangeInfo{Updated: lerr.modified, Matched: lerr.N}
+	}
+	return info, err
 }
 
 // RemoveId is a convenience helper equivalent to:
 //
-//     err := collection.Remove(bson.M{"_id": id})
+//    changeInfo, err := collection.Remove(bson.M{"_id": id})
 //
 // See the Remove method for more details.
-func (c *Collection) RemoveId(id interface{}) error {
+func (c *Collection) RemoveId(id interface{}) (*ChangeInfo, error) {
 	return c.Remove(bson.D{{Name: "_id", Value: id}})
 }
 

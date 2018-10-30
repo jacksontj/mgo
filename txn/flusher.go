@@ -432,7 +432,7 @@ func (f *flusher) unstashToken(tt token, dkey docKey) error {
 	chaos("")
 	if err := f.sc.Update(qdoc, udoc); err == nil {
 		chaos("")
-		err = f.sc.Remove(bson.D{{Name: "_id", Value: dkey}, {Name: "txn-queue", Value: bson.D{}}})
+		_, err = f.sc.Remove(bson.D{{Name: "_id", Value: dkey}, {Name: "txn-queue", Value: bson.D{}}})
 	} else if err != mgo.ErrNotFound {
 		return err
 	}
@@ -878,7 +878,7 @@ func (f *flusher) apply(t *transaction, pull map[bson.ObjectId]*transaction) err
 					} else {
 						f.debugf("Stash for document %v was up-to-date", dkey)
 					}
-					err = c.Remove(qdoc)
+					_, err = c.Remove(qdoc)
 				}
 			}
 		case op.Insert != nil:
@@ -913,7 +913,7 @@ func (f *flusher) apply(t *transaction, pull map[bson.ObjectId]*transaction) err
 							f.debugf("Document %v already existed", dkey)
 						}
 						chaos("")
-						if err = f.sc.Remove(qdoc); err == nil {
+						if _, err = f.sc.Remove(qdoc); err == nil {
 							f.debugf("Stash for document %v removed", dkey)
 						}
 					}

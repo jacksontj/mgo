@@ -882,7 +882,7 @@ func (s *S) TestRemove(c *C) {
 		c.Assert(err, IsNil)
 	}
 
-	err = coll.Remove(M{"n": M{"$gt": 42}})
+	_, err = coll.Remove(M{"n": M{"$gt": 42}})
 	c.Assert(err, IsNil)
 
 	result := &struct{ N int }{}
@@ -1556,7 +1556,7 @@ func (s *S) TestView(c *C) {
 	err = view.Insert(bson.M{"_id": 5, "nm": "b"})
 	c.Assert(err, NotNil)
 
-	err = view.Remove(bson.M{"_id": 2})
+	_, err = view.Remove(bson.M{"_id": 2})
 	c.Assert(err, NotNil)
 
 	err = view.Update(bson.M{"_id": 2}, bson.M{"$set": bson.M{"d": true}})
@@ -5030,7 +5030,7 @@ func (s *S) TestBypassValidation(c *C) {
 	c.Assert(err, IsNil)
 
 	// Ensure this still works. Shouldn't be affected.
-	err = coll.Remove(M{"n": 1})
+	_, err = coll.Remove(M{"n": 1})
 	c.Assert(err, IsNil)
 
 	var result struct{ N int }
